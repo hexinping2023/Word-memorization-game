@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>英语背单词游戏</title>
+  <!-- 使用更舒适的 Roboto 字体 -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/tone"></script>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #f7f7f7;
+      color: #333;
+      padding-bottom: 70px;
+      box-sizing: border-box;
+      position: relative;
+      line-height: 1.6;
+    }
+    #game-title {
+      font-size: 2.2rem;
+      margin-top: 30px;
+      margin-bottom: 20px;
+      color: #4CAF50;
+      /* 文字阴影轻微处理，使文字更柔和 */
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+    }
+    #unit-select {
+      margin-bottom: 30px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      width: 100%;
+      justify-content: center;
+    }
+    #unit-select button {
+      flex: 1 1 30%;
+      padding: 12px 25px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      background: linear-gradient(to bottom, #4CAF50, #388E3C);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+    }
+    #unit-select button:hover {
+      background: linear-gradient(to bottom, #66BB6A, #43A047);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+      transform: translateY(-2px);
+    }
+    #game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 95%;
+      max-width: 900px;
+      margin-bottom: 80px;
+    }
+    .game-mode {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      padding: 30px;
+      border: 6px solid #4CAF50;
+      border-radius: 15px;
+      margin-bottom: 30px;
+      background-color: #fff;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+      box-sizing: border-box;
+    }
+    .game-mode.active {
+      display: flex;
+    }
+    /* 单词消消乐 */
+    #memory-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+      justify-content: center;
+      width: 100%;
+    }
+    .memory-card {
+      width: 100%;
+      height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transition: all 0.2s ease;
+      user-select: none;
+      padding: 10px;
+      box-sizing: border-box;
+      text-align: center;
+      word-wrap: break-word;
+    }
+    .memory-card:hover {
+      transform: scale(1.08);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+    .memory-card.english {
+      background-color: #4CAF50;
+      color: #fff;
+    }
+    .memory-card.chinese {
+      background-color: #FFC107;
+      color: #333;
+    }
+    .memory-card.matched {
+      background-color: #4CAF50;
+      color: #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      animation: pulse 0.5s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    /* 拼写单词 */
+    #spelling-word {
+      font-size: 1.5rem;
+      margin-bottom: 30px;
+      letter-spacing: 0.05rem;
+      color: #333;
+      text-align: center;
+      min-height: 36px;
+      word-wrap: break-word;
+    }
+    #spelling-pronounce, #spelling-提示 {
+      padding: 12px 25px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: linear-gradient(to bottom, #4CAF50, #388E3C);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+      margin-bottom: 25px;
+    }
+    #spelling-pronounce:hover, #spelling-提示:hover {
+      background: linear-gradient(to bottom, #66BB6A, #43A047);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+      transform: translateY(-2px);
+    }
+    #spelling-input {
+      padding: 12px;
+      font-size: 0.9rem;
+      border: 3px solid #4CAF50;
+      border-radius: 10px;
+      margin-bottom: 25px;
+      width: 80%;
+      max-width: 300px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    #spelling-input:focus {
+      outline: none;
+      border-color: #66BB6A;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    #check-button {
+      padding: 12px 30px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: linear-gradient(to bottom, #4CAF50, #388E3C);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+      margin-bottom: 10px;
+    }
+    #check-button:hover {
+      background: linear-gradient(to bottom, #66BB6A, #43A047);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+      transform: translateY(-2px);
+    }
+    #hint-box {
+      font-size: 1.2rem;
+      color: #666;
+      text-align: center;
+      min-height: 30px;
+      margin-top: 10px;
+      margin-bottom: 20px;
+    }
+    /* 基础练习 */
+    #basic-flashcard {
+      font-size: 1.5rem;
+      margin-bottom: 25px;
+      padding: 20px;
+      width: 80%;
+      max-width: 400px;
+      border: 4px solid #4CAF50;
+      border-radius: 15px;
+      text-align: center;
+      min-height: 60px;
+      background-color: #fff;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+      word-wrap: break-word;
+    }
+    #basic-show-answer, #basic-next, #basic-pronounce {
+      padding: 12px 25px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: linear-gradient(to bottom, #4CAF50, #388E3C);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+      margin-bottom: 15px;
+      width: 200px;
+      text-align: center;
+    }
+    #basic-show-answer:hover, #basic-next:hover, #basic-pronounce:hover {
+      background: linear-gradient(to bottom, #66BB6A, #43A047);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+      transform: translateY(-2px);
+    }
+    #basic-message {
+      font-size: 1.2rem;
+      color: #333;
+      text-align: center;
+      min-height: 30px;
+      margin-bottom: 15px;
+    }
+    /* 学习游戏 */
+    #learning-question {
+      font-size: 1.5rem;
+      margin-bottom: 25px;
+      text-align: center;
+      min-height: 60px;
+      word-wrap: break-word;
+    }
+    #learning-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+      margin-bottom: 25px;
+      width: 100%;
+    }
+    .learning-option {
+      padding: 12px 25px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: linear-gradient(to bottom, #4CAF50, #388E3C);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+      width: 180px;
+      text-align: center;
+    }
+    .learning-option:hover:not(:disabled) {
+      background: linear-gradient(to bottom, #66BB6A, #43A047);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+      transform: translateY(-2px);
+    }
+    #learning-message {
+      font-size: 1.2rem;
+      color: #333;
+      text-align: center;
+      min-height: 30px;
+    }
+    /* 游戏模式选择 */
+    #game-mode-select {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #f0f0f0;
+      padding: 15px 0;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      box-shadow: 0px -4px 8px rgba(0,0,0,0.1);
+      box-sizing: border-box;
+    }
+    #game-mode-select button {
+      padding: 12px 25px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: linear-gradient(to bottom, #4CAF50, #388E3C);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+      width: 180px;
+      text-align: center;
+    }
+    #game-mode-select button:hover {
+      background: linear-gradient(to bottom, #66BB6A, #43A047);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+      transform: translateY(-2px);
+    }
+    #game-mode-select button.active {
+      background: linear-gradient(to bottom, #1B5E20, #0A7E07);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transform: translateY(0);
+    }
+    @media (max-width: 768px) {
+      #unit-select {
+        flex-direction: column;
+        gap: 10px;
+      }
+      #unit-select button {
+        flex: none;
+        width: 100%;
+        max-width: 300px;
+        margin: 0 auto;
+      }
+      #memory-card-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+      }
+      .memory-card {
+        font-size: 0.9rem;
+        height: 70px;
+        padding: 8px;
+      }
+      #spelling-word, #learning-question, #basic-flashcard {
+        font-size: 1.25rem;
+      }
+      #spelling-pronounce, #spelling-提示, #check-button, 
+      #basic-show-answer, #basic-next, #basic-pronounce, 
+      .learning-option, #game-mode-select button {
+        font-size: 0.8rem;
+        padding: 10px 20px;
+      }
+      #spelling-input {
+        font-size: 0.8rem;
+        padding: 10px;
+      }
+      #hint-box, #learning-message, #basic-message {
+        font-size: 1rem;
+      }
+    }
+    @media (max-width: 480px) {
+      #game-title {
+        font-size: 1.8rem;
+      }
+      #memory-card-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+      .memory-card {
+        font-size: 0.8rem;
+        height: 60px;
+        padding: 6px;
+      }
+      #spelling-word, #learning-question, #basic-flashcard {
+        font-size: 1rem;
+      }
+      #spelling-pronounce, #spelling-提示, #check-button, 
+      #basic-show-answer, #basic-next, #basic-pronounce, 
+      .learning-option, #game-mode-select button {
+        font-size: 0.7rem;
+        padding: 8px 15px;
+      }
+      #spelling-input {
+        font-size: 0.7rem;
+        padding: 8px;
+      }
+      #hint-box, #learning-message, #basic-message {
+        font-size: 0.9rem;
+      }
+      #game-mode-select button {
+        font-size: 0.7rem;
+        padding: 8px 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1 id="game-title">英语背单词游戏</h1>
+  <div id="unit-select"></div>
+  <div id="game-container">
+    <!-- 基础练习 -->
+    <div id="basic-practice" class="game-mode">
+      <div id="basic-flashcard">Click "Show Answer"</div>
+      <button id="basic-pronounce">Listen</button>
+      <button id="basic-show-answer">Show Answer</button>
+      <button id="basic-next">Next Word</button>
+      <div id="basic-message">Basic Practice: Click "Show Answer"</div>
+    </div>
+    <!-- 学习游戏 -->
+    <div id="learning-game" class="game-mode">
+      <div id="learning-question">Chinese Meaning</div>
+      <div id="learning-options"></div>
+      <div id="learning-message">Choose the correct English word</div>
+    </div>
+    <!-- 单词消消乐 -->
+    <div id="memory-game" class="game-mode">
+      <div id="memory-card-grid"></div>
+      <div id="message-box">Select a Chinese and an English card</div>
+    </div>
+    <!-- 拼写单词 -->
+    <div id="spelling-game" class="game-mode">
+      <div id="spelling-word">word</div>
+      <button id="spelling-pronounce">Listen</button>
+      <button id="spelling-提示">Show Hint</button>
+      <input type="text" id="spelling-input" placeholder="Enter the English word">
+      <button id="check-button">Check Spelling</button>
+      <div id="hint-box"></div>
+      <div id="message-box">Enter the correct English spelling</div>
+    </div>
+  </div>
+  <div id="game-mode-select">
+    <button data-game="basic-practice">Basic Practice</button>
+    <button data-game="learning-game">Learning Game</button>
+    <button data-game="memory-game">Word Matching</button>
+    <button data-game="spelling-game">Spelling Game</button>
+  </div>
+  <script>
+    // ----------------------
+    // 自定义发音函数：选择标准美式发音，设置语速及语调
+    let selectedVoice = null;
+    window.speechSynthesis.onvoiceschanged = function() {
+      const voices = window.speechSynthesis.getVoices();
+      // 优先选择 "Google US English"，否则选第一个英文语音
+      selectedVoice = voices.find(v => v.name === 'Google US English' && v.lang === 'en-US') ||
+                      voices.find(v => v.lang === 'en-US');
+    };
+    function speakWord(word) {
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = 'en-US';
+      // 调整语速与语调
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      if(selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+      speechSynthesis.speak(utterance);
+    }
+    // ----------------------
+
+    // 单元数据
+    const units = [
+      { name: "Unit 1: Making friends", words: { "hello": "你好", "eye": "眼睛", "mouth": "嘴巴", "ear": "耳朵", "arm": "手臂", "hand": "手", "help": "帮助", "listen": "听", "say": "说", "share": "分享", "smile": "微笑" } },
+      { name: "Unit 2: Different families", words: { "grandmother": "奶奶/外婆", "grandpa": "爷爷/外公", "father": "爸爸", "mother": "妈妈", "sister": "姐妹", "uncle": "叔叔/舅舅", "aunt": "姑姑/阿姨", "cousin": "堂/表兄弟姐妹", "brother": "兄弟", "baby": "婴儿" } },
+      { name: "Unit 3: Amazing animals", words: { "bird": "鸟", "cat": "猫", "dog": "狗", "elephant": "大象", "fish": "鱼", "giraffe": "长颈鹿", "lion": "狮子", "monkey": "猴子", "panda": "熊猫", "rabbit": "兔子", "tiger": "老虎", "fox": "狐狸", "red panda": "小熊猫" } },
+      { name: "Unit 4: Plants around us", words: { "grape": "葡萄", "orange": "橙子", "banana": "香蕉", "apple": "苹果", "tree": "树", "flower": "花", "leaf": "叶子", "water": "水" } },
+      { name: "Unit 5: The colourful world", words: { "red": "红色", "blue": "蓝色", "yellow": "黄色", "green": "绿色", "purple": "紫色", "white": "白色", "black": "黑色", "pink": "粉色", "orange": "橙色", "brown": "棕色" } },
+      { name: "Unit 6: Useful numbers", words: { "one": "一", "two": "二", "three": "三", "four": "四", "five": "五", "six": "六", "seven": "七", "eight": "八", "nine": "九", "ten": "十", "old": "老" } }
+    ];
+    const unitSelect = document.getElementById('unit-select');
+    const memoryGame = document.getElementById('memory-game');
+    const memoryCardGrid = document.getElementById('memory-card-grid');
+    const spellingGame = document.getElementById('spelling-game');
+    const spellingWordDisplay = document.getElementById('spelling-word');
+    const spellingPronounceButton = document.getElementById('spelling-pronounce');
+    const spellingInput = document.getElementById('spelling-input');
+    const checkButton = document.getElementById('check-button');
+    const hintBox = document.getElementById('hint-box');
+    const gameModeSelect = document.getElementById('game-mode-select');
+    // 基础练习相关DOM
+    const basicPractice = document.getElementById('basic-practice');
+    const basicFlashcard = document.getElementById('basic-flashcard');
+    const basicShowAnswerButton = document.getElementById('basic-show-answer');
+    const basicNextButton = document.getElementById('basic-next');
+    const basicPronounceButton = document.getElementById('basic-pronounce');
+    const basicMessage = document.getElementById('basic-message');
+    // 学习游戏相关DOM
+    const learningGame = document.getElementById('learning-game');
+    const learningQuestion = document.getElementById('learning-question');
+    const learningOptions = document.getElementById('learning-options');
+    const learningMessage = document.getElementById('learning-message');
+
+    let currentUnit = 0, gameMode = 'basic-practice', currentWordIndex = 0;
+    let basicPracticeIndex = 0, learningGameIndex = 0;
+    let currentWords = [];
+
+    // 声音效果（正确/错误/胜利音效）
+    const correctSound = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.2 } }).toDestination();
+    const incorrectSound = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination();
+    function playCorrectSound() { correctSound.triggerAttackRelease("C4", "8n"); }
+    function playIncorrectSound() { incorrectSound.triggerAttackRelease("G4", "4n"); }
+    function playWinSound() {
+      const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+      const now = Tone.now();
+      synth.triggerAttackRelease("C5", "8n", now);
+      synth.triggerAttackRelease("E5", "8n", now + 0.2);
+      synth.triggerAttackRelease("G5", "8n", now + 0.4);
+      synth.triggerAttackRelease("C6", "1n", now + 0.6);
+    }
+
+    // 加载单元选择按钮
+    units.forEach((unit, index) => {
+      const button = document.createElement('button');
+      button.textContent = unit.name;
+      button.dataset.unit = index;
+      button.addEventListener('click', () => {
+        currentUnit = index;
+        currentWordIndex = 0;
+        basicPracticeIndex = 0;
+        learningGameIndex = 0;
+        loadUnit(currentUnit);
+      });
+      unitSelect.appendChild(button);
+    });
+
+    // 游戏模式选择按钮
+    gameModeSelect.addEventListener('click', (event) => {
+      const target = event.target;
+      if (target.tagName === 'BUTTON') {
+        gameMode = target.dataset.game;
+        // 更新按钮高亮
+        gameModeSelect.querySelectorAll('button').forEach(button => button.classList.remove('active'));
+        target.classList.add('active');
+        // 显示对应的游戏区域
+        document.querySelectorAll('.game-mode').forEach(game => game.classList.remove('active'));
+        document.getElementById(gameMode).classList.add('active');
+        currentWordIndex = 0;
+        basicPracticeIndex = 0;
+        learningGameIndex = 0;
+        loadUnit(currentUnit);
+      }
+    });
+    // 默认激活初始游戏模式
+    gameModeSelect.querySelector(`[data-game="${gameMode}"]`).classList.add('active');
+
+    function loadUnit(unitIndex) {
+      const unit = units[unitIndex];
+      if (!unit) return;
+      // 将单元单词转为数组 [英文, 中文]
+      currentWords = Object.entries(unit.words);
+      if (gameMode === 'memory-game') loadMemoryGame(unit.words);
+      else if (gameMode === 'spelling-game') loadSpellingGame(currentWords, currentWordIndex);
+      else if (gameMode === 'basic-practice') loadBasicPractice(currentWords, basicPracticeIndex);
+      else if (gameMode === 'learning-game') loadLearningGame(currentWords, learningGameIndex);
+    }
+
+    // 单词消消乐模块
+    function loadMemoryGame(wordPairs) {
+      memoryCardGrid.innerHTML = '';
+      const gameWords = Object.entries(wordPairs).map(([en, ch]) => ({ en, ch }));
+      const cards = [...gameWords.map(item => ({ type: 'english', word: item.en, pairedWord: item.ch })),
+                      ...gameWords.map(item => ({ type: 'chinese', word: item.ch, pairedWord: item.en }))];
+      shuffleArray(cards);
+      cards.forEach(cardData => {
+        const card = document.createElement('div');
+        card.classList.add('memory-card', cardData.type);
+        card.textContent = cardData.word;
+        card.dataset.word = cardData.word;
+        card.dataset.pairedWord = cardData.pairedWord;
+        card.addEventListener('click', flipCard);
+        memoryCardGrid.appendChild(card);
+      });
+      document.querySelector('#memory-game #message-box').textContent = 'Select a Chinese and an English card';
+      flippedCards = []; moves = 0; matchedPairs = 0;
+    }
+
+    let flippedCards = [], moves = 0, matchedPairs = 0;
+    function flipCard() {
+      if (flippedCards.length >= 2 || this.classList.contains('matched')) return;
+      this.classList.add('selected');
+      flippedCards.push(this);
+      if (flippedCards.length === 2) {
+        moves++;
+        if (flippedCards[0].dataset.pairedWord === flippedCards[1].dataset.word) {
+          flippedCards.forEach(card => card.classList.add('matched'));
+          flippedCards = [];
+          matchedPairs++;
+          playCorrectSound();
+          document.querySelector('#memory-game #message-box').textContent = 'Match found!';
+          if (matchedPairs === Object.keys(units[currentUnit].words).length) {
+            playWinSound();
+            document.querySelector('#memory-game #message-box').textContent = `Congratulations, you completed the game in ${moves} moves!`;
+          }
+        } else {
+          setTimeout(() => {
+            flippedCards.forEach(card => card.classList.remove('selected'));
+            flippedCards = [];
+            playIncorrectSound();
+            document.querySelector('#memory-game #message-box').textContent = 'Try again';
+          }, 1000);
+        }
+      }
+    }
+
+    // 拼写单词模块
+    function loadSpellingGame(words, index) {
+      if (index >= words.length) {
+        playWinSound();
+        document.querySelector('#spelling-game #message-box').textContent = 'Congratulations, you completed this unit spelling game!';
+        currentWordIndex = 0;
+        loadSpellingGame(currentWords, currentWordIndex);
+        return;
+      }
+      spellingInput.value = '';
+      const [correctEnglishWord, chineseMeaning] = words[index];
+      spellingWordDisplay.textContent = chineseMeaning;
+      spellingWord = correctEnglishWord;
+      spellingPronounceButton.dataset.word = correctEnglishWord;
+      document.getElementById('spelling-提示').dataset.word = correctEnglishWord;
+      document.querySelector('#spelling-game #message-box').textContent = 'Enter the correct English spelling';
+      hintBox.textContent = '';
+      checkButton.disabled = false;
+      spellingInput.focus();
+    }
+
+    let spellingWord = '';
+    checkButton.addEventListener('click', () => {
+      const userInput = spellingInput.value.trim();
+      if (!userInput) { document.querySelector('#spelling-game #message-box').textContent = 'Please enter the English word!'; return; }
+      if (userInput.toLowerCase() === spellingWord.toLowerCase()) {
+        playCorrectSound();
+        document.querySelector('#spelling-game #message-box').textContent = 'Great job!';
+        currentWordIndex++;
+        loadSpellingGame(currentWords, currentWordIndex);
+      } else {
+        playIncorrectSound();
+        document.querySelector('#spelling-game #message-box').textContent = 'Try again, you can do it!';
+        spellingInput.focus();
+      }
+    });
+
+    document.getElementById('spelling-pronounce').addEventListener('click', () => {
+      const word = spellingPronounceButton.dataset.word;
+      if (word) {
+        speakWord(word);
+      }
+    });
+    document.getElementById('spelling-提示').addEventListener('click', () => {
+      const word = document.getElementById('spelling-提示').dataset.word;
+      if (word) {
+        const shuffledWord = shuffleString(word);
+        hintBox.textContent = `Hint: ${shuffledWord}`;
+      }
+    });
+
+    // 基础练习模块
+    function loadBasicPractice(words, index) {
+      if (index >= words.length) { basicPracticeIndex = 0; index = 0; }
+      const [eng, ch] = words[index];
+      // 初始状态显示英文单词，并存储中文释义
+      basicFlashcard.textContent = eng;
+      basicFlashcard.dataset.chinese = ch;
+      basicFlashcard.dataset.revealed = "false";
+      basicMessage.textContent = 'Click "Show Answer" to see the Chinese meaning';
+    }
+    basicShowAnswerButton.addEventListener('click', () => {
+      if (basicFlashcard.dataset.revealed === "false") {
+        basicFlashcard.textContent = basicFlashcard.dataset.chinese;
+        basicFlashcard.dataset.revealed = "true";
+        playCorrectSound();
+      }
+    });
+    basicNextButton.addEventListener('click', () => {
+      basicPracticeIndex++;
+      loadBasicPractice(currentWords, basicPracticeIndex);
+    });
+    basicPronounceButton.addEventListener('click', () => {
+      const word = basicFlashcard.textContent;
+      if (word) {
+        speakWord(word);
+      }
+    });
+
+    // 学习游戏模块
+    function loadLearningGame(words, index) {
+      if (index >= words.length) {
+        playWinSound();
+        learningMessage.textContent = 'Congratulations, you completed this unit learning game!';
+        learningGameIndex = 0;
+        setTimeout(() => { loadLearningGame(words, learningGameIndex); }, 2000);
+        return;
+      }
+      learningOptions.innerHTML = '';
+      const [correctEnglishWord, chineseMeaning] = words[index];
+      learningQuestion.textContent = chineseMeaning;
+      // 生成答案选项：正确答案 + 随机三个错误答案
+      let options = [correctEnglishWord];
+      let allOptions = words.map(item => item[0]).filter(word => word !== correctEnglishWord);
+      shuffleArray(allOptions);
+      for (let i = 0; i < 3 && i < allOptions.length; i++) {
+        options.push(allOptions[i]);
+      }
+      shuffleArray(options);
+      options.forEach(option => {
+        const btn = document.createElement('button');
+        btn.textContent = option;
+        btn.classList.add('learning-option');
+        btn.addEventListener('click', () => {
+          if (option === correctEnglishWord) {
+            playCorrectSound();
+            learningMessage.textContent = "Correct!";
+            learningGameIndex++;
+            setTimeout(() => { loadLearningGame(words, learningGameIndex); }, 1000);
+          } else {
+            playIncorrectSound();
+            learningMessage.textContent = "Wrong, try again!";
+            btn.disabled = true;
+          }
+        });
+        learningOptions.appendChild(btn);
+      });
+      learningMessage.textContent = "Choose the correct English word";
+    }
+
+    // 通用工具函数
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+    function shuffleString(str) {
+      if (!str) return '';
+      const array = str.split('');
+      shuffleArray(array);
+      return array.join('');
+    }
+
+    // 初始加载当前单元
+    loadUnit(currentUnit);
+  </script>
+</body>
+</html>
